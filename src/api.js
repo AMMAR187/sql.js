@@ -823,16 +823,16 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
     * an SQLite database file or a path
     * @param {Object} opts Options to specify a filename
     */
-    function Database(data) {
-        function Database(data, { filename = false } = {}) {
-        if(filename === false) {
-          this.filename = "dbfile_" + (0xffffffff * Math.random() >>> 0);
-          if (data != null) {
-            FS.createDataFile("/", this.filename, data, true, true);
-          }
+
+    function Database(data, { filename = false } = {}) {
+        if (filename === false) {
+            this.filename = "dbfile_" + (0xffffffff * Math.random() >>> 0);
+            if (data != null) {
+                FS.createDataFile("/", this.filename, data, true, true);
+            }
         }
         else {
-          this.filename = data;
+            this.filename = data;
         }
         this.handleError(sqlite3_open(this.filename, apiTemp));
         this.db = getValue(apiTemp, "i32");
@@ -850,14 +850,14 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
     placeholders, you can pass them in here. They will be bound to the statement
     before it is executed. If you use the params argument, you **cannot**
     provide an sql string that contains several statements (separated by `;`)
-
+ 
     @example
     // Insert values in a table
     db.run(
         "INSERT INTO test VALUES (:age, :name)",
         { ':age' : 18, ':name' : 'John' }
     );
-
+ 
     @return {Database} The database object (useful for method chaining)
      */
     Database.prototype["run"] = function run(sql, params) {
@@ -996,10 +996,10 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
     };
 
     /** Execute an sql statement, and call a callback for each row of result.
-
+ 
     Currently this method is synchronous, it will not return until the callback
     has been called on every row of the result. But this might change.
-
+ 
     @param {string} sql A string of SQL text. Can contain placeholders
     that will be bound to the parameters given as the second argument
     @param {Statement.BindParams} [params=[]] Parameters to bind to the query
@@ -1007,9 +1007,9 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
     Function to call on each row of result
     @param {function():void} done A function that will be called when
     all rows have been retrieved
-
+ 
     @return {Database} The database object. Useful for method chaining
-
+ 
     @example <caption>Read values from a table</caption>
     db.each("SELECT name,age FROM users WHERE age >= $majority", {$majority:18},
             function (row){console.log(row.name + " is a grown-up.")}
@@ -1139,7 +1139,7 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
     by the latest completed INSERT, UPDATE or DELETE statement on the
     database. Executing any other type of SQL statement does not modify
     the value returned by this function.
-
+ 
     @return {number} the number of rows modified
     */
     Database.prototype["getRowsModified"] = function getRowsModified() {
@@ -1210,7 +1210,7 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
       @example <caption>Register a simple function</caption>
           db.create_function("addOne", function (x) {return x+1;})
           db.exec("SELECT addOne(1)") // = 2
-
+ 
       @param {string} name the name of the function as referenced in
       SQL statements.
       @param {function} func the actual function to be executed.
@@ -1261,7 +1261,7 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
             finalize: state => state
         });
         db.exec("SELECT js_sum(column1) FROM (VALUES (1), (2))"); // = 3
-
+ 
       @param {string} name the name of the aggregate as referenced in
       SQL statements.
       @param {object} aggregateFunctions
@@ -1386,43 +1386,47 @@ Module["onRuntimeInitialized"] = function onRuntimeInitialized() {
 
     // export Database to Module
     Module.Database = Database;
-           // Because emscripten doesn't allow us to handle `ioctl`, we need
+    // Because emscripten doesn't allow us to handle `ioctl`, we need
     // to manually install lock/unlock methods. Unfortunately we need
     // to keep track of a mapping of `sqlite_file*` pointers to filename
     // so that we can tell our filesystem which files to lock/unlock
     var sqliteFiles = new Map();
 
     Module["register_for_idb"] = (customFS) => {
-      var SQLITE_BUSY = 5;
+        var SQLITE_BUSY = 5;
 
-      function open(namePtr, file) {
-        var path = UTF8ToString(namePtr);
-        sqliteFiles.set(file, path);
-      }
+        function open(namePtr, file) {
+            var path = UTF8ToString(namePtr);
+            sqliteFiles.set(file, path);
+        }
 
-      function lock(file, lockType) {
-        var path = sqliteFiles.get(file);
-        var success = customFS.lock(path, lockType)
-        return success? 0 : SQLITE_BUSY;
-      }
+        function lock(file, lockType) {
+            var path = sqliteFiles.get(file);
+            var success = customFS.lock(path, lockType)
+            return success ? 0 : SQLITE_BUSY;
+        }
 
-      function unlock(file,lockType) {
-        var path = sqliteFiles.get(file);
-        customFS.unlock(path, lockType)
-        return 0;
-      }
+        function unlock(file, lockType) {
+            var path = sqliteFiles.get(file);
+            customFS.unlock(path, lockType)
+            return 0;
+        }
 
-      let lockPtr = addFunction(lock, 'iii');
-      let unlockPtr = addFunction(unlock, 'iii');
-      let openPtr = addFunction(open, 'vii');
-      Module["_register_for_idb"](lockPtr, unlockPtr, openPtr)
+        let lockPtr = addFunction(lock, 'iii');
+        let unlockPtr = addFunction(unlock, 'iii');
+        let openPtr = addFunction(open, 'vii');
+        Module["_register_for_idb"](lockPtr, unlockPtr, openPtr)
     }
 
     // TODO: This isn't called from anywhere yet. We need to
     // somehow cleanup closed files from `sqliteFiles`
     Module["cleanup_file"] = (path) => {
-      let filesInfo = [...sqliteFiles.entries()]
-      let fileInfo = filesInfo.find(f => f[1] === path);
-      sqliteFiles.delete(fileInfo[0])
+        let filesInfo = [...sqliteFiles.entries()]
+        let fileInfo = filesInfo.find(f => f[1] === path);
+        sqliteFiles.delete(fileInfo[0])
+    }
+    Module["reset_filesystem"] = () => {
+        FS.root = null;
+        FS.staticInit();
     }
 };
