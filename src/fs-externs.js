@@ -5,12 +5,13 @@
 Module.FS = class {
     constructor() {
         this.ErrnoError = class { };
+        this.filesystems = {}
     }
     mount() { }
+    unmount() { }
     isRoot() { }
     isFile() { }
     isDir() { }
-    stat() { }
     /** @return {FSNode} */
     lookupPath() { }
     /** @return {FSNode} */
